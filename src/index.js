@@ -14,7 +14,7 @@ button:disabled{opacity:0.5}
 </style></head>
 <body>
 <h1 class="yellow">AKB EARN</h1>
-<p>Vérification balance ON-CHAIN (Etherscan V2 + ethers)</p>
+<p>Vérification balance ON-CHAIN (ethers RPC direct)</p>
 <div class="card">
 <input id="addr" placeholder="0x... adresse Ethereum" value="0x51519c43364780C8Eb484ba170c8413c934F9721">
 <button id="btn" onclick="check()">VÉRIFIER BALANCE ON-CHAIN</button>
@@ -26,11 +26,11 @@ async function check(){
  const res=document.getElementById('res');
  const btn=document.getElementById('btn');
  if(!addr.startsWith('0x')||addr.length!=42){res.style.display='block';res.innerHTML='❌ Adresse invalide';return}
- btn.disabled=true; btn.textContent='Vérification...'; res.style.display='block'; res.innerHTML='⏳ Interrogation blockchain V2...';
+ btn.disabled=true; btn.textContent='Vérification...'; res.style.display='block'; res.innerHTML='⏳ Interrogation blockchain...';
  try{
   const r=await fetch('/api/balance?address='+addr);
   const d=await r.json();
-  if(d.error){res.innerHTML='❌ '+d.error}else{res.innerHTML='<b>Adresse:</b> '+d.address+'<br><br><b>Balance:</b> <span class=yellow>'+d.balanceEth+' ETH</span><br><br><b>On-chain:</b> '+d.balanceWei+' wei<br><br>✅ Source: Etherscan V2 API'}
+  if(d.error){res.innerHTML='❌ '+d.error+'<br><small>'+(d.details||'')+'</small>'}else{res.innerHTML='<b>Adresse:</b> '+d.address+'<br><br><b>Balance:</b> <span class=yellow>'+d.balanceEth+' ETH</span><br><br><b>On-chain:</b> '+d.balanceWei+' wei<br><br>✅ Source: '+d.source}
  }catch(e){res.innerHTML='❌ Erreur: '+e.message}
  btn.disabled=false; btn.textContent='VÉRIFIER BALANCE ON-CHAIN';
 }
@@ -46,34 +46,15 @@ export default {
       return Response.json({ error: "Adresse invalide" }, { status: 400 });
     }
     try {
-      const apiKey = env.ETHERSCAN_API_KEY || "YourApiKeyToken";
-      // NOUVELLE API V2 ETHERSCAN
-      const apiUrl = `https://api.etherscan.io/v2/api?chainid=1&module=account&action=balance&address=${address}&tag=latest&apikey=${apiKey}`;
-      const r = await fetch(apiUrl);
-      const data = await r.json();
-      
-      let balanceWei = "0";
-      if (data.result && typeof data.result === 'string' && !data.result.includes("deprecated")) {
-         balanceWei = data.result;
-      } else if (data.result && data.result.includes && data.result.includes("deprecated")) {
-         // Fallback RPC public si Etherscan bloque sans clé
-         const rpcRes = await fetch("https://cloudflare-eth.com", {
-           method: "POST",
-           headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getBalance", params: [address, "latest"] })
-         });
-         const rpcData = await rpcRes.json();
-         balanceWei = BigInt(rpcData.result).toString();
-      } else {
-         balanceWei = data.result || "0";
-      }
-
+      // RPC PUBLIC FIABLE - PAS ETHERSCAN
+      const provider = new ethers.JsonRpcProvider("https://ethereum.publicnode.com");
+      const balanceWei = await provider.getBalance(address);
       const balanceEth = ethers.formatEther(balanceWei);
-      return Response.json({ address, balanceWei, balanceEth, source: "etherscan-v2" }, {
+      return Response.json({ address, balanceWei: balanceWei.toString(), balanceEth, source: "ethers.js + publicnode RPC" }, {
         headers: { "Access-Control-Allow-Origin": "*" }
       });
     } catch (e) {
-      return Response.json({ error: e.message }, { status: 500 });
+      return Response.json({ error: "Erreur RPC", details: e.message }, { status: 500 });
     }
   }
   return new Response(HTML, { headers: { "Content-Type": "text/html; charset=utf-8" } });
