@@ -1,0 +1,11 @@
+{
+  "name": "akb-earn",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "ethers": "^6.13.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}
