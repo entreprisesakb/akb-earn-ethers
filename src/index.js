@@ -16,7 +16,7 @@ export default {
     if(!isAddr(address)) return Response.json({error:"Adresse invalide"}, {status:400});
     const RPCS = {
       eth: "https://eth.llamarpc.com",
-      bsc: "https://binance.llamarpc.com"
+      bsc: "https://1rpc.io/bnb"
     };
     try{
       const rpcUrl = RPCS[chain] || RPCS.bsc;
